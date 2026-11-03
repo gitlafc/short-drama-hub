@@ -1,15 +1,17 @@
-// app.js —— 主逻辑：剧库 / 搜索 / 详情 / 播放 / 我的
+// app.js —— 主逻辑：剧库 / 搜索 / 详情 / 播放 / 我的 / 自定义源
 import { api } from "./api.js";
 import { store } from "./store.js";
-import { bindPlayer, openEpisode, setRate, getRates, getCurrent } from "./player.js";
+import { bindPlayer, openEpisode, setRate, getRates, getCurrent, isM3u8, proxyUrl } from "./player.js";
 
 const $ = (s) => document.querySelector(s);
 
 const state = {
   tab: "hot",
+  source: "", // 当前内容源 id（hongguo / local）
   home: null,
   series: null, // 详情中的剧集对象
   episodes: null, // 详情中的分集列表
+  custom: null, // 自定义源的合成剧集对象
 };
 
 // ---------- 主题 ----------
@@ -33,8 +35,8 @@ function updateThemeBtn(t) {
 
 // ---------- 视图 ----------
 function showView(name) {
-  ["home", "detail", "player", "fav"].forEach((v) =>
-    $("#view-" + v).hidden = v !== name
+  ["home", "detail", "player", "fav", "custom"].forEach((v) =>
+    ($("#view-" + v).hidden = v !== name)
   );
   document.querySelectorAll(".nav button").forEach((b) =>
     b.classList.toggle("active", b.dataset.go === name)
@@ -116,13 +118,44 @@ function renderGrid(items) {
   grid.appendChild(frag);
 }
 
+// ---------- 内容源 ----------
+async function loadSources() {
+  try {
+    const data = await api.sources();
+    const sel = $("#sourceSel");
+    sel.innerHTML = "";
+    (data.sources || []).forEach((s) => {
+      const o = document.createElement("option");
+      o.value = s.id;
+      o.textContent = s.name + (s.limited ? "（有限额）" : "");
+      sel.appendChild(o);
+    });
+    const saved = store.getSource();
+    const ok = (data.sources || []).some((s) => s.id === saved);
+    state.source = ok ? saved : data.default || (data.sources[0] && data.sources[0].id) || "";
+    sel.value = state.source;
+  } catch (e) {
+    state.source = "hongguo";
+    $("#srcWarn").textContent = "内容源列表加载失败：" + e.message;
+  }
+}
+
+function onSourceChange(v) {
+  state.source = v;
+  store.setSource(v);
+  state.home = null;
+  loadHome();
+}
+
 // ---------- 剧库 ----------
 async function loadHome() {
   $("#homeEmpty").hidden = false;
   $("#homeEmpty").textContent = "加载中…";
+  $("#srcWarn").textContent = "";
   try {
-    const data = await api.home();
+    const data = await api.home(state.source);
     state.home = data;
+    if (data.warning) $("#srcWarn").textContent = "⚠️ " + data.warning;
     applyTab();
   } catch (e) {
     $("#homeEmpty").hidden = false;
@@ -153,7 +186,7 @@ async function doSearch(q) {
   $("#homeEmpty").hidden = false;
   $("#homeEmpty").textContent = `搜索“${q}”中…`;
   try {
-    const data = await api.search(q);
+    const data = await api.search(q, state.source);
     renderGrid(data.items || []);
     if (!data.items || !data.items.length)
       $("#homeEmpty").textContent = "未找到相关短剧，换个关键词试试。";
@@ -164,13 +197,14 @@ async function doSearch(q) {
 }
 
 // ---------- 详情 ----------
-async function openDetail(id, fromHistoryEp) {
+async function openDetail(id) {
   showView("detail");
   $("#dTitle").textContent = "加载中…";
   $("#dEpisodes").innerHTML = "";
   $("#dRec").innerHTML = "";
   try {
-    const d = await api.detail(id);
+    const d = await api.detail(id, state.source);
+    d.source = state.source;
     state.series = d;
     state.episodes = d.episodes || [];
     renderDetail(d);
@@ -187,6 +221,7 @@ function renderDetail(d) {
   const meta = [];
   if (d.episode_count) meta.push(d.episode_count + "集");
   if (d.heat) meta.push("🔥 " + d.heat);
+  if (d.tag) meta.push(d.tag);
   $("#dMeta").textContent = meta.join(" · ");
   $("#dDesc").textContent = d.description || "";
   const coverBox = $("#dCover");
@@ -265,6 +300,212 @@ function renderFav() {
   else his.forEach((it) => hisGrid.appendChild(buildCard(it)));
 }
 
+// ============================================================================
+// 自定义源（方案 2）：粘贴 m3u8 / mp4 直链，或 JSON API
+// ============================================================================
+
+function hashId(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+  return "cus_" + h.toString(36);
+}
+
+// 从任意 JSON 结构里尽力提取剧集列表
+function extractEpisodes(json) {
+  const arr =
+    (Array.isArray(json) && json) ||
+    (Array.isArray(json?.episodes) && json.episodes) ||
+    (Array.isArray(json?.list) && json.list) ||
+    (Array.isArray(json?.items) && json.items) ||
+    (Array.isArray(json?.data) && json.data) ||
+    (Array.isArray(json?.result) && json.result) ||
+    (Array.isArray(json?.videos) && json.videos) ||
+    null;
+  if (!arr) return [];
+  return arr
+    .map((x, i) => {
+      if (typeof x === "string") return { url: x, title: `第${i + 1}集`, number: i + 1 };
+      const url =
+        x.url || x.play_url || x.playUrl || x.src || x.m3u8 || x.hls || x.stream_url || x.streamUrl || x.source || "";
+      const title = x.title || x.name || x.episode_title || x.label || `第${i + 1}集`;
+      const number = x.number || x.episode || x.index || i + 1;
+      return { url, title, number };
+    })
+    .filter((e) => e.url);
+}
+
+// 解析「直链列表」文本：支持 "标题|URL" 与纯 URL 两种写法
+function parseDirectList(text) {
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((line, i) => {
+      let title = "";
+      let url = line;
+      const m = line.match(/^(.+?)\s*[|｜]\s*(https?:\/\/\S+)$/);
+      if (m) {
+        title = m[1].trim();
+        url = m[2].trim();
+      }
+      return { url, title: title || `第${i + 1}集`, number: i + 1 };
+    })
+    .filter((e) => /^https?:\/\//i.test(e.url));
+}
+
+function looksLikeApi(text) {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length !== 1) return false;
+  const u = lines[0];
+  return /\.json(\?|$)/i.test(u) || /\/api\//i.test(u) || /[?&](api|list|eps)=/i.test(u);
+}
+
+async function buildCustomEpisodes() {
+  const raw = ($("#cusUrls").value || "").trim();
+  if (!raw) throw new Error("请先粘贴链接或 API 地址");
+  const mode = $("#cusMode").value;
+  const proxy = $("#cusProxy").checked;
+
+  let eps = [];
+  if (mode === "direct") {
+    eps = parseDirectList(raw);
+  } else if (mode === "api") {
+    const list = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    for (const u of list) {
+      const r = await fetch(proxyUrl(u));
+      if (!r.ok) throw new Error("API 拉取失败：" + r.status + " " + u);
+      const j = await r.json();
+      eps.push(...extractEpisodes(j));
+    }
+  } else {
+    // auto
+    if (looksLikeApi(raw)) {
+      const u = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0];
+      const r = await fetch(proxyUrl(u));
+      if (!r.ok) throw new Error("API 拉取失败：" + r.status);
+      eps = extractEpisodes(await r.json());
+    } else {
+      eps = parseDirectList(raw);
+    }
+  }
+
+  if (!eps.length) throw new Error("没解析到可播放地址，请检查链接格式");
+
+  return eps.map((e, i) => ({
+    id: `cus_ep_${i + 1}`,
+    number: e.number || i + 1,
+    title: e.title || `第${i + 1}集`,
+    url: e.url,
+    direct: true,
+    proxy,
+    isM3u8: isM3u8(e.url),
+  }));
+}
+
+function customSeries(eps, title) {
+  const t = title || "自定义源";
+  return {
+    id: hashId(t + "|" + eps[0].url),
+    title: t,
+    cover: "",
+    description: "自定义源（" + eps.length + " 集）",
+    episode_count: eps.length,
+    source: "custom",
+    episodes: eps,
+  };
+}
+
+function cusMsg(text, isErr) {
+  const el = $("#cusMsg");
+  el.textContent = text || "";
+  el.classList.toggle("err", !!isErr);
+}
+
+async function doCustomPlay() {
+  cusMsg("解析中…");
+  try {
+    const eps = await buildCustomEpisodes();
+    const title = ($("#cusTitle").value || "").trim() || "自定义源";
+    state.custom = customSeries(eps, title);
+    state.series = state.custom;
+    state.episodes = eps;
+    cusMsg(`✅ 已解析 ${eps.length} 集，开始播放。`);
+    showView("player");
+    renderEpisodes($("#pEpisodes"), eps, (idx) => openPlayer(idx));
+    openEpisode(state.custom, eps, 0);
+  } catch (e) {
+    cusMsg("⚠️ " + e.message, true);
+  }
+}
+
+function doCustomSave() {
+  try {
+    const raw = ($("#cusUrls").value || "").trim();
+    if (!raw) throw new Error("内容为空");
+    const title = ($("#cusTitle").value || "").trim() || "自定义源";
+    const id = hashId(title + "|" + raw);
+    store.addCustom({
+      id,
+      title,
+      urls: raw,
+      mode: $("#cusMode").value,
+      proxy: $("#cusProxy").checked,
+    });
+    cusMsg("💾 已保存到「自定义源」列表。");
+    renderCustomList();
+  } catch (e) {
+    cusMsg("⚠️ " + e.message, true);
+  }
+}
+
+function renderCustomList() {
+  const box = $("#cusList");
+  box.innerHTML = "";
+  const list = store.getCustom();
+  if (!list.length) {
+    box.innerHTML = '<p class="empty">还没有保存的自定义源。</p>';
+    return;
+  }
+  list.forEach((c) => {
+    const row = document.createElement("div");
+    row.className = "cus-item";
+    const info = document.createElement("div");
+    info.className = "cus-info";
+    const h = document.createElement("strong");
+    h.textContent = c.title || "自定义源";
+    const p = document.createElement("p");
+    p.textContent = (c.urls || "").split(/\r?\n/)[0].slice(0, 80);
+    info.appendChild(h);
+    info.appendChild(p);
+
+    const acts = document.createElement("div");
+    acts.className = "cus-acts";
+    const play = document.createElement("button");
+    play.className = "btn";
+    play.textContent = "▶ 播放";
+    play.onclick = () => {
+      $("#cusTitle").value = c.title || "";
+      $("#cusUrls").value = c.urls || "";
+      $("#cusMode").value = c.mode || "auto";
+      $("#cusProxy").checked = c.proxy !== false;
+      doCustomPlay();
+    };
+    const del = document.createElement("button");
+    del.className = "btn-ghost";
+    del.textContent = "删除";
+    del.onclick = () => {
+      store.removeCustom(c.id);
+      renderCustomList();
+    };
+    acts.appendChild(play);
+    acts.appendChild(del);
+
+    row.appendChild(info);
+    row.appendChild(acts);
+    box.appendChild(row);
+  });
+}
+
 // ---------- 事件 ----------
 function bindEvents() {
   $("#themeBtn").addEventListener("click", toggleTheme);
@@ -273,6 +514,7 @@ function bindEvents() {
     b.addEventListener("click", () => {
       const go = b.dataset.go;
       if (go === "fav") renderFav();
+      if (go === "custom") renderCustomList();
       showView(go);
     })
   );
@@ -286,6 +528,8 @@ function bindEvents() {
     if (e.key === "Enter") doSearch($("#searchInput").value);
   });
 
+  $("#sourceSel").addEventListener("change", (e) => onSourceChange(e.target.value));
+
   $("#tabs").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-tab]");
     if (!btn) return;
@@ -298,7 +542,6 @@ function bindEvents() {
   document.body.addEventListener("click", (e) => {
     const card = e.target.closest(".card");
     if (card && card.dataset.id && !e.target.closest(".ep-btn")) {
-      // 避免重复：仅当点击的是 grid / dRec / favGrid / hisGrid 内的卡片
       const parent = card.parentElement;
       if (parent && /grid|Rec|favGrid|hisGrid/.test(parent.id)) {
         openDetail(card.dataset.id);
@@ -314,12 +557,16 @@ function bindEvents() {
     $("#rateBtn").textContent = r + "x";
   });
 
+  // 自定义源
+  $("#cusPlay").addEventListener("click", doCustomPlay);
+  $("#cusSave").addEventListener("click", doCustomSave);
+
   // 详情页收藏
   updateFavBtn($("#dFav"), null);
 }
 
 // ---------- 启动 ----------
-function main() {
+async function main() {
   initTheme();
   bindPlayer({
     video: $("#video"),
@@ -329,6 +576,8 @@ function main() {
     episodeList: $("#pEpisodes"),
   });
   bindEvents();
+  await loadSources();
+  renderCustomList();
   loadHome();
 }
 document.addEventListener("DOMContentLoaded", main);

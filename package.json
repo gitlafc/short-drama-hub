@@ -1,10 +1,11 @@
 {
   "name": "short-drama-hub",
-  "version": "0.2.0",
-  "description": "短剧漫剧聚合播放器：Web 版 MiniReel，内置开源社区源（红果非官方接口 openhongguo），本地收藏/历史，无广告。",
+  "version": "0.3.0",
+  "description": "短剧漫剧聚合播放器：Web 版 MiniReel。内置红果源（受限）+ 自定义源（m3u8/JSON API，零限额）+ 本地片库（零限额），本机代理播放，本地收藏/历史，无广告。",
   "type": "module",
   "scripts": {
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "verify": "node scripts/verify-browser.mjs"
   },
   "keywords": [
     "短剧",
@@ -12,6 +13,8 @@
     "播放器",
     "聚合",
     "minireel",
+    "m3u8",
+    "hls",
     "openhongguo",
     "short-drama"
   ],

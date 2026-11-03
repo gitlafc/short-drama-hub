@@ -17,3 +17,6 @@ __pycache__/
 # openhongguo 本地匿名设备档案（含设备凭证，勿入库）
 .openhongguo-profile.json
 *openhongguo*.json
+
+# 若你把 media-manifest.json 换成自己的私人片库，可在此取消注释以免入库
+# media-manifest.json

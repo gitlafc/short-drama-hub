@@ -12,9 +12,17 @@ async function getJSON(url) {
   return r.json();
 }
 
+// 追加内容源参数：base 已带 ? 则用 &，否则用 ?
+function withSource(base, source) {
+  if (!source) return base;
+  return base + (base.includes("?") ? "&" : "?") + "source=" + encodeURIComponent(source);
+}
+
 export const api = {
-  home: () => getJSON("/api/home"),
-  search: (q) => getJSON("/api/search?q=" + encodeURIComponent(q)),
-  detail: (id) => getJSON("/api/detail?id=" + encodeURIComponent(id)),
-  play: (episodeId) => getJSON("/api/play?episodeId=" + encodeURIComponent(episodeId)),
+  sources: () => getJSON("/api/sources"),
+  home: (source) => getJSON(withSource("/api/home", source)),
+  search: (q, source) => getJSON(withSource("/api/search?q=" + encodeURIComponent(q), source)),
+  detail: (id, source) => getJSON(withSource("/api/detail?id=" + encodeURIComponent(id), source)),
+  play: (episodeId, source) =>
+    getJSON(withSource("/api/play?episodeId=" + encodeURIComponent(episodeId), source)),
 };

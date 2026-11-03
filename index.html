@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>短剧漫剧播放器 · Short Drama Hub</title>
-  <meta name="description" content="Web 版 MiniReel：聚合播放红果等平台的短剧、漫剧、AI剧，本地收藏/历史，无广告。" />
+  <meta name="description" content="Web 版 MiniReel：聚合播放红果等平台的短剧、漫剧、AI剧，支持自定义 m3u8 源与本地片库，本地收藏/历史，无广告。" />
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
 <body>
@@ -12,6 +12,7 @@
     <div class="brand"><span>🎬</span> 短剧漫剧播放器</div>
     <nav class="nav">
       <button data-go="home" class="active">剧库</button>
+      <button data-go="custom">自定义源</button>
       <button data-go="fav">我的</button>
     </nav>
     <button id="themeBtn" class="icon-btn" title="切换深浅色">🌙</button>
@@ -23,6 +24,11 @@
       <input id="searchInput" type="text" placeholder="搜剧名 / 演员，如：总裁、重生…" autocomplete="off" />
       <button id="searchBtn" class="btn">搜索</button>
     </div>
+    <div class="src-bar">
+      <span class="src-label">内容源</span>
+      <select id="sourceSel" class="src-sel" title="切换内容源"></select>
+      <span id="srcWarn" class="src-warn"></span>
+    </div>
     <div id="tabs" class="tabs">
       <button data-tab="hot" class="active">热播</button>
       <button data-tab="new">新上线</button>
@@ -31,6 +37,43 @@
     <div id="grid" class="grid"></div>
     <div id="homeEmpty" class="empty" hidden>加载中…</div>
   </main>
+
+  <!-- 自定义源 -->
+  <section id="view-custom" class="view" hidden>
+    <h2 class="sec-title">自定义源</h2>
+    <p class="hint">
+      粘贴 <strong>m3u8 / mp4 直链</strong>，或一个返回剧集列表的 <strong>JSON API</strong>。
+      经本机代理播放，不受平台限额影响；支持多行批量添加，一行一集。
+    </p>
+    <div class="custom-card">
+      <label class="field">
+        <span>剧名（可选）</span>
+        <input id="cusTitle" type="text" placeholder="默认显示「自定义源」" autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>解析方式</span>
+        <select id="cusMode" class="src-sel">
+          <option value="auto">自动（直链 / API 智能识别）</option>
+          <option value="direct">直链列表（每行一条）</option>
+          <option value="api">JSON API（返回剧集数组）</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>链接 / API 地址</span>
+        <textarea id="cusUrls" rows="7" spellcheck="false" placeholder="https://cdn.example.com/ep1.m3u8&#10;第2集|https://cdn.example.com/ep2.mp4&#10;或：https://api.example.com/list.json"></textarea>
+      </label>
+      <div class="cus-row">
+        <label class="check"><input type="checkbox" id="cusProxy" checked /> 经本机代理（绕过防盗链 / CORS）</label>
+        <div class="cus-actions">
+          <button id="cusPlay" class="btn">▶ 播放</button>
+          <button id="cusSave" class="btn-ghost">💾 保存</button>
+        </div>
+      </div>
+      <div id="cusMsg" class="hint"></div>
+    </div>
+    <h3 class="sec-title">已保存的自定义源</h3>
+    <div id="cusList" class="cus-list"></div>
+  </section>
 
   <!-- 详情 -->
   <section id="view-detail" class="view" hidden>
@@ -79,12 +122,14 @@
 
   <footer class="footer">
     <p>
-      <strong>合规声明：</strong>本播放器基于开源社区非官方 SDK
+      <strong>合规声明：</strong>本播放器为「壳 + 可插拔内容源」架构。内置源基于开源社区非官方 SDK
       <code>openhongguo</code>（红果短剧接口），仅供<strong>个人学习 / 技术研究</strong>，禁止商用；
-      不托管、不存储、不解析改写任何视频内容，版权归原平台所有。源接口存在匿名设备限额，偶发受限请稍后重试。
+      不托管、不存储、不解析改写任何视频内容，版权归原平台所有。红果源存在匿名设备限额，
+      受限时可切换到<strong>本地片库</strong>或<strong>自定义源</strong>。
     </p>
   </footer>
 
+  <script src="assets/vendor/hls.min.js"></script>
   <script type="module" src="assets/js/app.js"></script>
 </body>
 </html>

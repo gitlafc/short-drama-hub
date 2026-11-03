@@ -144,6 +144,52 @@ body {
 }
 .quality-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 
+/* 内容源切换 */
+.src-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 14px; font-size: 13px; color: var(--text-muted);
+}
+.src-label { flex: none; }
+.src-sel {
+  background: var(--bg-elev); color: var(--text); border: 1px solid var(--border);
+  border-radius: 10px; padding: 7px 12px; font-size: 14px; cursor: pointer;
+}
+.src-sel:focus { outline: 2px solid var(--accent); }
+.src-warn { color: #ffb84d; flex: 1 1 260px; min-width: 0; }
+
+/* 通用说明文字 */
+.hint { color: var(--text-muted); font-size: 13px; line-height: 1.7; margin: 8px 0 16px; }
+.hint.err { color: #ff7b7b; }
+
+/* 自定义源 */
+.custom-card {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px; display: flex; flex-direction: column; gap: 14px;
+}
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-muted); }
+.field input, .field textarea, .field select {
+  background: var(--bg-soft); color: var(--text); border: 1px solid var(--border);
+  border-radius: 10px; padding: 11px 13px; font-size: 14px; font-family: inherit;
+}
+.field textarea { resize: vertical; line-height: 1.6; word-break: break-all; }
+.field input:focus, .field textarea:focus, .field select:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.cus-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.check { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-muted); cursor: pointer; }
+.check input { accent-color: var(--accent); width: 15px; height: 15px; }
+.cus-actions { display: flex; gap: 10px; }
+.cus-list { display: flex; flex-direction: column; gap: 10px; }
+.cus-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
+}
+.cus-info { min-width: 0; }
+.cus-info strong { font-size: 14px; }
+.cus-info p {
+  margin: 3px 0 0; font-size: 12px; color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cus-acts { display: flex; gap: 8px; flex: none; }
+
 /* 页脚 */
 .footer { max-width: 1180px; margin: 30px auto; padding: 18px 20px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 12px; }
 .footer code { background: var(--bg-elev); padding: 2px 6px; border-radius: 6px; border: 1px solid var(--border); }
@@ -154,4 +200,5 @@ body {
   .detail-head { flex-direction: column; }
   #dCover { width: 100%; height: auto; aspect-ratio: 3/4; }
   #video { max-height: 70vh; }
+  .cus-item { flex-direction: column; align-items: flex-start; }
 }
