@@ -1,64 +1,45 @@
-# 短剧漫剧聚合平台 · Short Drama Hub
+# 短剧漫剧聚合播放器 · Short Drama Hub
 
-一个**轻量、零构建、开箱即用**的短剧 / 漫剧 / AI 剧聚合发现平台。把红果、番茄、河马、西饭、抖音、快手、B站、腾讯、优酷、芒果、腾讯动漫、快看、漫漫等主流平台的**官方入口**聚合到一起，并提供**统一搜索**——输入剧名，一键跳转到各平台官方搜索页。
+一个 **Web 版 MiniReel**：把红果等平台的短剧 / 漫剧 / AI 剧聚合到一个**无广告、本地化**的播放器里，手机、电脑浏览器都能看。对标开源项目 [MiniReel](https://github.com/yixuexiaoao/minireel-tv) 的体验，但用 Web 实现，开箱即用。
 
-> 🎯 定位：聚合**导航与发现**，不是视频解析/播放器。所有跳转均指向平台官方网站。
+> 核心玩法：剧库 / 搜索 → 选剧 → 选集 → 播放（倍速、自动连播、进度记忆）→ 收藏 / 历史存本地。
 
 ---
 
-## ✨ 特性
+## ✨ 功能
 
-- 🔍 **统一聚合搜索**：输入剧名，自动生成「在红果/B站/抖音/腾讯… 搜索」的官方链接，新标签一键打开。
-- 🗂️ **类型筛选**：全部 / 真人剧 / 漫剧 / AI剧 / 综合，一键切换。
-- 🆓 **免费专区**：只看好用的免费平台。
-- ⭐ **收藏 & 历史**：基于浏览器本地存储，不上传任何数据；支持「仅看收藏」。
-- 🌗 **深色模式**：自动跟随系统，可手动切换。
-- 📱 **响应式**：PC 与手机浏览器均适配。
-- 🧩 **零依赖**：纯前端，无需 `npm install`；也附带一个可选 Node 服务（依然零依赖）。
+- 🎬 **剧库**：热播推荐、新上线，带封面 / 热度 / 标签。
+- 🔍 **聚合搜索**：搜剧名 / 演员，实时返回结果。
+- 📺 **内置播放器**：原生 video，支持**倍速**（1x / 1.25x / 1.5x / 2x）、**清晰度切换**（按高度自动排序）、**自动连播下一集**、**播放进度记忆**。
+- ⭐ **本地收藏 & 观看历史**：全部存于浏览器本地，不上传、不注册账号。
+- 🌗 **深色 / 浅色**：默认深色，自动跟随系统，可手动切换。
+- 📱 **响应式**：PC 与手机浏览器均适配（竖屏短剧居中播放）。
 
 ---
 
 ## ⚖️ 合规声明（务必阅读）
 
-本项目**仅聚合各平台的官方公开入口与官方搜索页**，所有跳转都指向平台官方网站。
+本项目是一个**播放器壳 + 可插拔内容源**，内容来自开源社区非官方 SDK **[`openhongguo`](https://github.com/beilunyang/openhongguo)**（红果短剧接口）：
 
-- ❌ 不解析、不托管、不盗链任何第三方平台的视频流；
-- ❌ 不破解、不绕过任何平台的会员 / 付费 / 地区限制；
-- ✅ 内容版权归各原平台 / 权利人所有，本项目仅作导航与发现用途。
-
-如果你希望在此基础上做播放聚合（调用非官方接口解析视频流），请务必自行评估并承担相应平台的《用户协议》与当地法律法规风险。本项目默认形态保持合规。
+- 📄 **`openhongguo` 仅限个人学习 / 技术研究使用，禁止商用**，内容版权归原平台所有；
+- 🚫 本项目**不托管、不存储、不解析改写**任何视频内容，所有剧集元数据与播放地址均来自上游接口的实时转发（播放地址为带签名的临时直链）；
+- ⚠️ 上游接口使用**匿名设备**访问，存在**设备级请求限额**（`ANONYMOUS_LIMITED`），偶发返回空 → 播放页会提示并可一键重试，稍后或更换网络通常即可恢复；
+- 如需接入其他平台源，请在 `server/index.js` 的 `sources` 处按相同契约扩展，并自行评估合规性。
 
 ---
 
-## 🚀 快速开始
+## 🚀 运行
 
-三种方式任选其一，**都不需要安装任何依赖**。
-
-### 方式 A：直接双击打开（最简单）
-
-直接双击 `index.html` 用浏览器打开即可使用。
-（注：个别浏览器对 `file://` 下的 ES Module 有限制；若页面空白，请用方式 B / C。）
-
-### 方式 B：Python 静态服务（推荐）
+需要 **Node.js 18+**（已内置依赖，无需额外安装除 `npm install` 外的东西）。
 
 ```bash
 cd short-drama-hub
-python -m http.server 8788
+npm install          # 安装 openhongguo（内容源 SDK）
+npm start            # 启动服务，默认端口 8788
 # 浏览器打开 http://127.0.0.1:8788
 ```
 
-### 方式 C：Node 服务（可选，零依赖）
-
-```bash
-cd short-drama-hub
-npm start            # 等价于 node server/proxy.js
-# 浏览器打开 http://127.0.0.1:8788
-```
-
-Node 服务额外提供两个**只读**接口（仅做 URL 拼接，不向外发请求）：
-
-- `GET /api/platforms` —— 返回平台配置数组
-- `GET /api/search?q=关键词` —— 返回各平台的官方搜索链接
+> 首次启动会下载 / 加载 openhongguo 的 wasm 内核，稍等几秒。之后剧库、搜索、详情、播放即可使用。
 
 ---
 
@@ -66,77 +47,38 @@ Node 服务额外提供两个**只读**接口（仅做 URL 拼接，不向外发
 
 ```
 short-drama-hub/
-├── index.html              # 页面骨架
+├── index.html              # 单页播放器（剧库 / 详情 / 播放 / 我的 四视图）
 ├── assets/
-│   ├── css/style.css       # 样式（含浅色/深色主题）
+│   ├── css/style.css       # 样式（沉浸式深色 + 响应式）
 │   └── js/
-│       ├── platforms.js    # ★ 平台聚合数据（单一数据源，可自由增删）
-│       ├── store.js        # 本地收藏/历史（localStorage）
-│       └── app.js          # 主逻辑：渲染/搜索/筛选/收藏/主题
+│       ├── api.js          # 后端接口封装
+│       ├── store.js        # 本地存储：收藏 / 历史 / 进度
+│       ├── player.js       # 播放器控制：倍速 / 清晰度 / 连播 / 进度
+│       └── app.js          # 主逻辑：路由 / 剧库 / 搜索 / 详情
 ├── server/
-│   └── proxy.js            # 可选 Node 静态服务 + 只读接口（零依赖）
-├── package.json
-├── LICENSE                 # MIT
+│   └── index.js            # 后端源服务（ESM）：静态托管 + /api/* 内容源接口
+├── package.json            # type:module，依赖 openhongguo
+├── LICENSE                 # MIT（本项目代码；内容源遵循 openhongguo 许可）
 └── README.md
 ```
 
 ---
 
-## ➕ 如何新增 / 修正平台
+## 🔌 后端接口契约（如需扩展源）
 
-所有平台都在 **`assets/js/platforms.js`** 一处维护。新增一条记录即可：
-
-```js
-{
-  id: "myplatform",          // 唯一标识
-  name: "某某短剧",           // 显示名
-  type: "real",              // real(真人剧)/anime(漫剧)/ai(AI剧)/mixed(综合)
-  free: true,                // 是否以免费为主
-  color: "#ff4d4f",          // 卡片主题色
-  icon: "某",                // 卡片图标（emoji 或单字）
-  home: "https://example.com/",          // 官方主页（必填）
-  search: "https://example.com/search?q={q}",  // 官方搜索模板，{q}=关键词；留空自动回退站内搜索
-  ranked: true,              // 是否有官方榜单（仅展示用）
-  note: "一句话说明",
-}
-```
-
-> 若某平台官方搜索页路径变更导致跳转不准，只需修改对应 `search` 字段即可。
+- `GET /api/home` → `{ hot, newReleases, categories }`
+- `GET /api/search?q=关键词` → `{ items, has_more }`
+- `GET /api/detail?id=剧集ID` → `{ id, title, cover, episodes, recommend, ... }`
+- `GET /api/play?episodeId=分集ID` → `{ url, definition, streams }`
 
 ---
 
-## ☁️ 部署（GitHub Pages）
+## ☁️ 部署（GitHub Pages / 任意静态托管）
 
-1. 把本仓库推到 GitHub（见下方「关联远程仓库」）。
-2. 仓库 Settings → Pages → Source 选择 `main` 分支根目录 → Save。
-3. 几分钟后即可通过 `https://<你的用户名>.github.io/short-drama-hub/` 访问。
-
----
-
-## 🔗 关联远程仓库（本机未安装 GitHub CLI，手动步骤）
-
-本项目已在本地 `git init` 并提交。要把它推到 GitHub：
-
-```bash
-# 1. 在 https://github.com/new 新建一个名为 short-drama-hub 的空仓库（不要勾选 README/.gitignore）
-# 2. 在本地仓库目录关联并推送：
-cd short-drama-hub
-git remote add origin https://github.com/<你的用户名>/short-drama-hub.git
-git branch -M main
-git push -u origin main
-```
-
-（若你已安装并登录 `gh`，也可：`gh repo create short-drama-hub --public --source=. --push`）
-
----
-
-## 📌 已知限制
-
-- 部分平台的「官方搜索页」路径会随版本调整；本项目的搜索以官方模板优先，缺失时回退到「站内搜索（Bing `site:` 限定）」，保证可用。
-- 本项目是聚合**导航**，不直接提供播放；如需播放请在各平台官方内完成。
+前端是纯静态，可单独托管 `index.html` + `assets/`（需把 `/api/*` 请求代理到运行 `server/index.js` 的后端，或改为直连）。最简单：直接在能跑 Node 的机器上 `npm start`，或用反向代理暴露 8788 端口。
 
 ---
 
 ## 📄 License
 
-[MIT](./LICENSE)
+本项目代码采用 [MIT](./LICENSE)。内容源遵循 [`openhongguo`](https://github.com/beilunyang/openhongguo) 的许可（个人学习 / 非商用）。

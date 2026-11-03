@@ -1,63 +1,88 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>短剧漫剧聚合平台 · Short Drama Hub</title>
-  <meta name="description" content="聚合各大短剧 / 漫剧 / AI 剧平台的官方入口与统一搜索，一键跳转，绿色合规。" />
+  <title>短剧漫剧播放器 · Short Drama Hub</title>
+  <meta name="description" content="Web 版 MiniReel：聚合播放红果等平台的短剧、漫剧、AI剧，本地收藏/历史，无广告。" />
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">
-      <span class="brand-logo">🎬</span>
-      <span class="brand-name">短剧漫剧聚合 <small>Short Drama Hub</small></span>
-    </div>
-    <button id="themeBtn" class="icon-btn" title="切换深色 / 浅色">🌙</button>
+    <div class="brand"><span>🎬</span> 短剧漫剧播放器</div>
+    <nav class="nav">
+      <button data-go="home" class="active">剧库</button>
+      <button data-go="fav">我的</button>
+    </nav>
+    <button id="themeBtn" class="icon-btn" title="切换深浅色">🌙</button>
   </header>
 
-  <section class="hero">
-    <h1>一处搜遍各大短剧漫剧平台</h1>
-    <p class="sub">输入剧名，一键跳转到红果、番茄、河马、抖音、B站、腾讯、漫剧等平台官方搜索；也能按类型与免费专区聚合浏览。</p>
-    <form id="searchForm" class="search-box">
-      <input id="query" type="text" placeholder="输入短剧 / 漫剧名称，例如：总裁、全球死考…" autocomplete="off" />
-      <button type="submit" class="btn primary">聚合搜索</button>
-    </form>
-    <div id="history" class="history" hidden></div>
-  </section>
-
-  <!-- 首页：平台聚合 -->
-  <main id="homeView" class="container">
-    <div class="toolbar">
-      <div id="typeTabs" class="tabs">
-        <button data-type="all" class="active">全部</button>
-        <button data-type="real">真人剧</button>
-        <button data-type="anime">漫剧</button>
-        <button data-type="ai">AI剧</button>
-        <button data-type="mixed">综合</button>
-      </div>
-      <div class="filters">
-        <label class="switch"><input type="checkbox" id="onlyFav" /> 仅看收藏</label>
-        <label class="switch"><input type="checkbox" id="onlyFree" /> 免费专区</label>
-      </div>
+  <!-- 剧库 -->
+  <main id="view-home" class="view">
+    <div class="hero-search">
+      <input id="searchInput" type="text" placeholder="搜剧名 / 演员，如：总裁、重生…" autocomplete="off" />
+      <button id="searchBtn" class="btn">搜索</button>
     </div>
-    <div id="platformGrid" class="grid"></div>
+    <div id="tabs" class="tabs">
+      <button data-tab="hot" class="active">热播</button>
+      <button data-tab="new">新上线</button>
+      <button data-tab="all">全部</button>
+    </div>
+    <div id="grid" class="grid"></div>
+    <div id="homeEmpty" class="empty" hidden>加载中…</div>
   </main>
 
-  <!-- 搜索结果视图 -->
-  <section id="searchView" class="container" hidden>
-    <button id="backHome" class="link">← 返回首页</button>
-    <h2 id="searchTitle"></h2>
-    <div id="searchResults" class="search-list"></div>
+  <!-- 详情 -->
+  <section id="view-detail" class="view" hidden>
+    <button class="back btn-ghost" data-go="home">← 返回</button>
+    <div class="detail-head">
+      <div id="dCover" class="cover-placeholder">剧</div>
+      <div class="detail-meta">
+        <h2 id="dTitle"></h2>
+        <p id="dMeta" class="meta"></p>
+        <button id="dFav" class="btn-ghost">☆ 收藏</button>
+      </div>
+    </div>
+    <p id="dDesc" class="desc"></p>
+    <h3 class="sec-title">选集</h3>
+    <div id="dEpisodes" class="episodes"></div>
+    <h3 class="sec-title">相关推荐</h3>
+    <div id="dRec" class="grid small"></div>
+  </section>
+
+  <!-- 播放 -->
+  <section id="view-player" class="view" hidden>
+    <button class="back btn-ghost" data-go="detail">← 返回</button>
+    <div class="player-box">
+      <video id="video" controls playsinline></video>
+      <div id="pStatus" class="p-status"></div>
+    </div>
+    <div class="player-bar">
+      <h3 id="pTitle" class="sec-title"></h3>
+      <div class="player-controls">
+        <button id="rateBtn" class="btn-ghost">1x</button>
+        <span id="quality" class="quality"></span>
+      </div>
+    </div>
+    <h3 class="sec-title">选集</h3>
+    <div id="pEpisodes" class="episodes"></div>
+  </section>
+
+  <!-- 我的 -->
+  <section id="view-fav" class="view" hidden>
+    <h2 class="sec-title">我的</h2>
+    <h3 class="sec-title">收藏</h3>
+    <div id="favGrid" class="grid"></div>
+    <h3 class="sec-title">观看历史</h3>
+    <div id="hisGrid" class="grid"></div>
   </section>
 
   <footer class="footer">
     <p>
-      <strong>合规声明：</strong>本项目仅聚合各平台的
-      <em>官方公开入口与官方搜索页</em>，所有跳转均指向平台官方网站；
-      不解析、不托管、不盗链任何第三方视频流，内容版权归各原平台所有。仅供导航与发现使用。
+      <strong>合规声明：</strong>本播放器基于开源社区非官方 SDK
+      <code>openhongguo</code>（红果短剧接口），仅供<strong>个人学习 / 技术研究</strong>，禁止商用；
+      不托管、不存储、不解析改写任何视频内容，版权归原平台所有。源接口存在匿名设备限额，偶发受限请稍后重试。
     </p>
-    <p class="muted">数据维护于 <code>assets/js/platforms.js</code>，可自行增删平台与修正搜索链接。</p>
   </footer>
 
   <script type="module" src="assets/js/app.js"></script>

@@ -1,12 +1,22 @@
 {
   "name": "short-drama-hub",
-  "version": "0.1.0",
-  "description": "短剧漫剧聚合平台：聚合各大短剧/漫剧/AI剧平台的官方入口与统一搜索，绿色合规。",
-  "type": "commonjs",
+  "version": "0.2.0",
+  "description": "短剧漫剧聚合播放器：Web 版 MiniReel，内置开源社区源（红果非官方接口 openhongguo），本地收藏/历史，无广告。",
+  "type": "module",
   "scripts": {
-    "start": "node server/proxy.js"
+    "start": "node server/index.js"
   },
-  "keywords": ["短剧", "漫剧", "聚合", "导航", "short-drama", "mini-drama"],
+  "keywords": [
+    "短剧",
+    "漫剧",
+    "播放器",
+    "聚合",
+    "minireel",
+    "openhongguo",
+    "short-drama"
+  ],
   "license": "MIT",
-  "dependencies": {}
+  "dependencies": {
+    "openhongguo": "^0.1.0"
+  }
 }
