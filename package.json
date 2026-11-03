@@ -1,0 +1,12 @@
+{
+  "name": "short-drama-hub",
+  "version": "0.1.0",
+  "description": "短剧漫剧聚合平台：聚合各大短剧/漫剧/AI剧平台的官方入口与统一搜索，绿色合规。",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/proxy.js"
+  },
+  "keywords": ["短剧", "漫剧", "聚合", "导航", "short-drama", "mini-drama"],
+  "license": "MIT",
+  "dependencies": {}
+}

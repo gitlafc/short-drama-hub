@@ -1,0 +1,15 @@
+# 依赖
+node_modules/
+
+# 日志
+*.log
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# 本地环境（如有）
+.venv/
+__pycache__/

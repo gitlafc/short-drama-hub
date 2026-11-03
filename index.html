@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>短剧漫剧聚合平台 · Short Drama Hub</title>
+  <meta name="description" content="聚合各大短剧 / 漫剧 / AI 剧平台的官方入口与统一搜索，一键跳转，绿色合规。" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-logo">🎬</span>
+      <span class="brand-name">短剧漫剧聚合 <small>Short Drama Hub</small></span>
+    </div>
+    <button id="themeBtn" class="icon-btn" title="切换深色 / 浅色">🌙</button>
+  </header>
+
+  <section class="hero">
+    <h1>一处搜遍各大短剧漫剧平台</h1>
+    <p class="sub">输入剧名，一键跳转到红果、番茄、河马、抖音、B站、腾讯、漫剧等平台官方搜索；也能按类型与免费专区聚合浏览。</p>
+    <form id="searchForm" class="search-box">
+      <input id="query" type="text" placeholder="输入短剧 / 漫剧名称，例如：总裁、全球死考…" autocomplete="off" />
+      <button type="submit" class="btn primary">聚合搜索</button>
+    </form>
+    <div id="history" class="history" hidden></div>
+  </section>
+
+  <!-- 首页：平台聚合 -->
+  <main id="homeView" class="container">
+    <div class="toolbar">
+      <div id="typeTabs" class="tabs">
+        <button data-type="all" class="active">全部</button>
+        <button data-type="real">真人剧</button>
+        <button data-type="anime">漫剧</button>
+        <button data-type="ai">AI剧</button>
+        <button data-type="mixed">综合</button>
+      </div>
+      <div class="filters">
+        <label class="switch"><input type="checkbox" id="onlyFav" /> 仅看收藏</label>
+        <label class="switch"><input type="checkbox" id="onlyFree" /> 免费专区</label>
+      </div>
+    </div>
+    <div id="platformGrid" class="grid"></div>
+  </main>
+
+  <!-- 搜索结果视图 -->
+  <section id="searchView" class="container" hidden>
+    <button id="backHome" class="link">← 返回首页</button>
+    <h2 id="searchTitle"></h2>
+    <div id="searchResults" class="search-list"></div>
+  </section>
+
+  <footer class="footer">
+    <p>
+      <strong>合规声明：</strong>本项目仅聚合各平台的
+      <em>官方公开入口与官方搜索页</em>，所有跳转均指向平台官方网站；
+      不解析、不托管、不盗链任何第三方视频流，内容版权归各原平台所有。仅供导航与发现使用。
+    </p>
+    <p class="muted">数据维护于 <code>assets/js/platforms.js</code>，可自行增删平台与修正搜索链接。</p>
+  </footer>
+
+  <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
