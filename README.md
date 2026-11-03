@@ -110,6 +110,8 @@ short-drama-hub/
 │   └── hongguo-web.js         # 红果官方网页版公开播放通道（免登录 / 免签名）
 ├── scripts/
 │   ├── verify-browser.mjs     # 真实浏览器端到端自检（CDP 驱动 Chrome）
+│   ├── probe-hongguo-lab.mjs  # 红果取流实验室：5 条通路并排实测
+│   ├── probe-guoapp-exact.mjs # 真果鉴 App 通道逐字节复刻（对照实验）
 │   ├── probe-hongguo.mjs      # 抓包工具：打印红果 App 端真实请求与响应
 │   ├── replay-variant.mjs     # 参数变体重放实验（定位风控判定点）
 │   └── capture-web.mjs        # 抓任意网页的真实网络请求（对比各端差异）
@@ -207,6 +209,105 @@ body: {"item_id":"<分集ID>"}
 | 本地片库 | `media-manifest.json` | 本机代理 | 无 |
 
 播放顺序：**先试网页版公开通道**（快、稳定、无限额），失败再退回 App 端通道。
+
+### 🧩 对照：开源客户端「真果鉴 / 红果鉴」是怎么实现的
+
+> 源码：[`zhoufuweigg/guoapp`](https://github.com/zhoufuweigg/guoapp)（★1.6k，Dart 55.9% + Go 34.8%，
+> 原作者「鱼佬」，原名「短剧库 APP」）。以下**全部为本地 clone 后实测所得，非推测**。
+
+真果鉴是 Flutter + Go(FFI) 的多端客户端，站源请求 / 解析 / 下载 / 播放**全在设备本地完成**，
+不依赖自建服务器。它的红果站源同样走「番茄小说」后端，取流分**三条通道依次降级**：
+
+| # | 通道 | 端点 | 签名 | 本机实测结果 |
+| --- | --- | --- | --- | --- |
+| ① | App 端原生 | `api5-normal-sinfonlineb.fqnovel.com/novel/player/video_model/v1/` | **仅 X-Gorgon**（自研纯 Go） | ❌ HTTP 200 + **空响应体**，被静默拒绝 |
+| ② | 网页版 | `hongguoduanju.com/player/{seriesID}/{vid}` SSR 页面 | 无 | ❌ 未登录页面**不带** `video_player_info` |
+| ③ | 备用解析 | `djapi.999888456.xyz/api/hongguo/play`（第三方服务） | `v2.` AES-CBC 加密响应 | ⚠️ 协议已破解，但返回 `{"parse":0,"url":""}` |
+
+#### 值得抄的四份实现
+
+**1. 纯 Go 的 X-Gorgon 签名**（`native/core/provider_hongguo_sign.go`）
+
+只设 4 个头（`X-Gorgon` / `X-Khronos` / `X-SS-Req-Ticket` / `X-SS-STUB`），
+**不带** `x-argus` / `x-ladon` / `x-helios` / `x-medusa`：
+
+```
+payload[0:4]  = md5(query)[0:4]
+payload[4:8]  = md5(body)[0:4]
+payload[12:16]= {0, 6, 11, 28}
+payload[16:20]= uint32(unix)
+payload       ^= key{44 b9 b9 d9 a4 ae f9 fc a4 93 aa 75 7c a3 c2 c4 a4 96 93 8f}
+payload[i]    = reverse8(rotl8(payload[i],4) ^ payload[i+1]) ^ 0xff ^ 20
+signature     = 8404401c0000 || payload
+```
+
+**2. 完整的 X-Argus / X-Ladon**（`native/core/provider_hongguo_comment_sign.go`，弹幕接口用）
+含 SM3 实现、protobuf varint 编码、自定义 SM3-Cipher 轮函数、AES-CBC 封装 ——
+这是字节完整版签名，本项目尚未复刻。
+
+**3. 网页版 SSR 解析**（`provider_hongguo.go`）
+页面里是 `_ROUTER_DATA = {...}`，取 `loaderData["player_(series_id)/(vid)/page"]`。
+⚠️ 关键坑：**Go 用 `json.Decoder` 流式解码（只取第一个 JSON 值）**，
+用 `JSON.parse` 会因后面还跟着 `<script>` 而必然失败——本项目探针脚本已按流式方式复刻。
+
+**4. 备用接口的 `v2.` 加密协议 + CENC 密钥解密**
+响应格式 `v2.api_<hex>.<base64>`：hex 段派生 32 字节 material（前 16 作 AES-128 key，
+后 16 作 IV），解出 CBC 密文；`spade_a` 字段可解出 AES-128 内容密钥（用于 CENC）。
+
+#### 但实测结论是：它的协议并没有比我们更强
+
+我们把它那套纯 Gorgon 签名**逐字节复刻**（含 `sinfonlineb` 主机、`com.phoenix.read/73532` UA、
+`_rticket`、`Sdk-Version: 2`、精简 query），并做了受控变量实验：
+
+| 变量 | 尝试过的取值 | 结果 |
+| --- | --- | --- |
+| 签名头 | 纯 Gorgon / openhongguo 完整 5 层栈 | 全部空响应体 |
+| 主机 | `sinfonlinea` / `sinfonlineb` | 全部空响应体 |
+| 设备画像 | 小米 23127PN0CC / Redmi 25053RT47C / 全新随机设备 | 全部空响应体 |
+| `video_platform` | 0 / 1 / 2 / **3** / 4 | 全部空响应体 |
+| body 结构 | guoapp 版 / openhongguo 版 | 全部空响应体 |
+| TLS 指纹 | Node(undici) / Chrome 真实浏览器 | 全部空响应体 |
+| ID | `vid` vs `item_id` | **已确认二者完全一致**，不是原因 |
+
+> `vid` 与 `item_id` 一致这点是硬证据：抓 `video_detail` 原始响应，
+> `video_list[].vid` 就是 openhongguo 暴露的 `episode.id`，与网页版 `item_id` 同值。
+
+**结论**：字节对这条链路的判定**不在协议层**——而是 **IP / 设备信誉**。
+真果鉴跑在用户的**真机 + 家宽 IP** 上，天然带字节设备侧风控 SDK 的环境指纹与良好信誉；
+在本机 / 机房 IP 上，无论怎么复刻签名都会被**静默拒绝**（HTTP 200 + 空响应体，不给错误码）。
+
+**所以我们现有方案在「免登录」场景下反而更强**：
+官方网页版的 `fallback-play-info` API **免签名、免登录**就能拿到 mp4 直链，
+而真果鉴的网页通道读 SSR 页面，未登录时页面里根本没有 `video_player_info`。
+
+#### 顺带挖到的一条增量：`play-info` 的备用线路
+
+`play-info`（`definition=720p`）比 `fallback` 多给了三样东西：
+
+- `backup_url` —— **备用线路**（`fallback` 只有 `main_url`）
+- `player_access_key` —— AES 密钥，`format=dash`、**音视频分离**
+- `init_range` / `index_range` / `first_moof_range` —— fMP4 字节范围，可自行转 HLS
+
+即真果鉴所谓「Go 本地代理支持 HLS 智能重写」在做的事。但受同一条限制：
+`fallback` 与 `play-info` 的可用范围**一致（每剧前 5 集）**，验证见下表。
+
+| 分集序号 | fallback | play-info(720p) |
+| --- | --- | --- |
+| 第 1–5 集 | ✓ mp4 直链 | ✓ DASH 720p |
+| 第 6 集及以后 | ✗ `protected_playback_unavailable` | ✗ 同左 |
+
+> 官方网页版未登录时点击第 6 集**根本不会切集**（仍请求第 1 集的 `item_id`）而是弹扫码登录框，
+> 所以「前 5 集」是官方未登录的真实上限，不是我们没做到位。
+
+#### 一键复现这份对照
+
+```bash
+npm run probe:lab -- 7701935931787316286 7701937936731737112 7701937814501346328
+```
+
+会并排实测上述 5 条通路，输出「能不能拿到地址 / 拿到什么 / 受什么限制」。
+
+---
 
 ---
 

@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server/index.js",
     "verify": "node scripts/verify-browser.mjs",
-    "probe": "node scripts/probe-hongguo.mjs"
+    "probe": "node scripts/probe-hongguo.mjs",
+    "probe:lab": "node scripts/probe-hongguo-lab.mjs",
+    "probe:web": "node scripts/capture-web.mjs"
   },
   "keywords": [
     "短剧",
