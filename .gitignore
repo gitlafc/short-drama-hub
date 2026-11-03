@@ -13,3 +13,7 @@ Thumbs.db
 # 本地环境（如有）
 .venv/
 __pycache__/
+
+# openhongguo 本地匿名设备档案（含设备凭证，勿入库）
+.openhongguo-profile.json
+*openhongguo*.json
