@@ -3,7 +3,7 @@
 // 短剧漫剧聚合播放器 —— 后端源服务（ESM，零构建，Node 18+）。
 //
 // 架构：内容源可插拔（Source Registry）
-//   ┌─ hongguo ── 开源社区非官方 SDK `openhongguo`（红果短剧）── 有匿名设备限额
+//   ┌─ hongguo ── 开源元数据 SDK `openhongguo` + 官方网页版公开播放通道 ─ 免登录试看前 3 集
 //   ├─ local   ── 本地片库（media-manifest.json，用户自有内容）──── 零限额
 //   └─ custom  ── 前端「自定义源」模式，粘贴 m3u8 / mp4 / JSON API ─ 零限额
 //
@@ -25,6 +25,7 @@ import { fileURLToPath } from "node:url";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createClient, OpenhongguoError, fileProfileStore } from "openhongguo";
+import { webPlayInfo, isPublicFallbackUnavailable } from "./hongguo-web.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -80,7 +81,7 @@ async function hongguoHome() {
   const tabs = (cats?.tabs || []).map((t) => ({ name: t.name, value: t.value }));
   const warning =
     hotR.status === "rejected" && nrR.status === "rejected"
-      ? "红果源当前受限（匿名设备限额），请改用「本地片库」或「自定义源」。"
+      ? "红果元数据接口当前受限（匿名设备限额），请改用「本地片库」或「自定义源」。"
       : "";
   return { hot: hotItems, newReleases: newItems, categories: tabs, warning };
 }
@@ -113,6 +114,8 @@ async function hongguoDetail(id) {
     title: e.title || `第${e.number}集`,
     cover: e.cover_url || "",
   }));
+  // 记录 分集ID -> 剧集ID，供播放时给网页版接口带 Referer
+  episodes.forEach((e) => epSeriesMap.set(e.id, id));
   const recommend = (rec.items || []).map((x) => ({
     id: x.id,
     title: x.title,
@@ -136,7 +139,8 @@ async function hongguoDetail(id) {
 // 播放冷却（防止狂点把匿名限额打爆）
 let playCooldownUntil = 0;
 
-async function hongguoPlay(episodeId) {
+// ---- App 端通道（fqnovel.com + 字节风控签名，匿名设备会被限流）----
+async function appChannelPlay(episodeId) {
   const now = Date.now();
   if (now < playCooldownUntil) {
     const waitSec = Math.ceil((playCooldownUntil - now) / 1000);
@@ -161,6 +165,7 @@ async function hongguoPlay(episodeId) {
           url: best?.url || "",
           definition: best?.definition || "",
           proxy: false, // 红果为带签名的临时直链，直连即可
+          via: "app",
           streams: streams.map((s) => ({
             definition: s.definition,
             url: s.url,
@@ -193,6 +198,46 @@ async function hongguoPlay(episodeId) {
   const e = new Error("源暂时受限（匿名设备限额），请稍后重试，或改用「本地片库 / 自定义源」。");
   e.code = limited ? code : "UNKNOWN";
   throw e;
+}
+
+// ---- 播放主流程：先走网页版公开通道（不受匿名限额影响），再退回 App 端通道 ----
+// episodeId -> seriesId 映射（detail 时填充），用于给网页版接口带上 Referer
+const epSeriesMap = new Map();
+
+async function hongguoPlay(episodeId) {
+  // ① 网页版公开通道：无需 cookie / 签名 / 登录态，且不受匿名设备限额影响
+  const web = await webPlayInfo(episodeId, { seriesId: epSeriesMap.get(episodeId) || "" });
+  if (web.ok) {
+    return {
+      url: web.url,
+      definition: web.definition || "试看",
+      // 必须走本机代理：CDN(qznovelvod.com) 有 Referer 白名单，
+      // 浏览器直连会带 Referer=http://127.0.0.1:8788/ → 403；
+      // 代理默认不转发 Referer，且支持 Range，浏览器请求同源地址即可正常播放。
+      proxy: true,
+      via: "web",
+      expiresAt: web.expiresAt,
+      streams: [
+        { definition: web.definition || "试看", url: web.url, proxy: true },
+      ],
+    };
+  }
+
+  // ② 回退 App 端通道（设备未被风控标记时可用，能拿到全部集与多清晰度）
+  try {
+    return await appChannelPlay(episodeId);
+  } catch (appErr) {
+    if (isPublicFallbackUnavailable(web.code)) {
+      const e = new Error(
+        "该集未开放公开播放：红果官方对未登录用户每部剧仅开放前 5 集试看" +
+          "（已核对官方网页版：未登录点第 6 集会弹扫码登录框）。" +
+          "可改用「自定义源 / 本地片库」，或在官方网页版登录后观看。"
+      );
+      e.code = "PUBLIC_FALLBACK_UNAVAILABLE";
+      throw e;
+    }
+    throw appErr;
+  }
 }
 
 // ============================================================================
@@ -341,8 +386,8 @@ const SOURCES = {
   hongguo: {
     id: "hongguo",
     name: "红果短剧",
-    desc: "开源社区非官方接口 openhongguo，存在匿名设备限额",
-    limited: true,
+    desc: "开源元数据源 openhongguo + 官方网页版公开播放通道（未登录每剧前 5 集试看）",
+    limited: false,
     home: hongguoHome,
     search: hongguoSearch,
     detail: hongguoDetail,

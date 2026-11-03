@@ -253,7 +253,51 @@ try {
   }
   check("本地源 m3u8 开始播放", localPlay.t > 0.5, `currentTime=${localPlay.t.toFixed(2)}s readyState=${localPlay.rs}`);
 
-  // 5. 控制台错误
+  // 5. 红果源实际播放（走官方网页版公开通道）
+  console.log("\n▶ 红果源播放（第 1 集，网页版公开通道）");
+  await cdp.evaluate(`(() => {
+    document.querySelector('.nav button[data-go="home"]').click();
+    const sel = document.getElementById('sourceSel');
+    sel.value = 'hongguo';
+    sel.dispatchEvent(new Event('change'));
+    return true;
+  })()`);
+  let hgCards = 0;
+  for (let i = 0; i < 30; i++) {
+    await sleep(500);
+    hgCards = await cdp.evaluate(`document.querySelectorAll('#grid .card').length`);
+    if (hgCards > 0) break;
+  }
+  check("红果源加载到剧集", hgCards > 0, hgCards + " 张");
+
+  await cdp.evaluate(`(() => { const c = document.querySelector('#grid .card'); if (c) c.click(); return true; })()`);
+  let hgEps = 0;
+  for (let i = 0; i < 30; i++) {
+    await sleep(500);
+    hgEps = await cdp.evaluate(`document.querySelectorAll('#dEpisodes .ep-btn').length`);
+    if (hgEps > 0) break;
+  }
+  check("红果详情列出分集", hgEps > 0, hgEps + " 集");
+
+  await cdp.evaluate(`(() => { const b = document.querySelector('#dEpisodes .ep-btn'); if (b) b.click(); return true; })()`);
+  let hgPlay = { t: 0, rs: 0, w: 0, h: 0, err: "", src: "" };
+  for (let i = 0; i < 30; i++) {
+    await sleep(1000);
+    hgPlay = await cdp.evaluate(`(() => {
+      const v = document.getElementById('video');
+      return {
+        t: v ? v.currentTime : 0, rs: v ? v.readyState : 0,
+        w: v ? v.videoWidth : 0, h: v ? v.videoHeight : 0,
+        err: v && v.error ? v.error.message : '',
+        src: v ? (v.currentSrc || '').slice(0, 70) : '',
+      };
+    })()`);
+    if (hgPlay.t > 0.5) break;
+  }
+  check("红果源实际开始播放", hgPlay.t > 0.5, `currentTime=${hgPlay.t.toFixed(2)}s ${hgPlay.w}x${hgPlay.h}`);
+  check("红果源播放无错误", !hgPlay.err, hgPlay.err || "无");
+
+  // 6. 控制台错误
   const errs = cdp.events
     .filter((e) => e.method === "Log.entryAdded" && e.params?.entry?.level === "error")
     .map((e) => e.params.entry.text)
